@@ -1,12 +1,12 @@
-# validate-commit-msg
+# validate-pre-receive
 
-[![travis build](https://img.shields.io/travis/kentcdodds/validate-commit-msg.svg?style=flat-square)](https://travis-ci.org/kentcdodds/validate-commit-msg)
-[![codecov coverage](https://img.shields.io/codecov/c/github/kentcdodds/validate-commit-msg.svg?style=flat-square)](https://codecov.io/github/kentcdodds/validate-commit-msg)
-[![version](https://img.shields.io/npm/v/validate-commit-msg.svg?style=flat-square)](http://npm.im/validate-commit-msg)
-[![downloads](https://img.shields.io/npm/dm/validate-commit-msg.svg?style=flat-square)](http://npm-stat.com/charts.html?package=validate-commit-msg&from=2015-08-01)
-[![MIT License](https://img.shields.io/npm/l/validate-commit-msg.svg?style=flat-square)](http://opensource.org/licenses/MIT)
-[![semantic-release](https://img.shields.io/badge/%20%20%F0%9F%93%A6%F0%9F%9A%80-semantic--release-e10079.svg?style=flat-square)](https://github.com/semantic-release/semantic-release)
-[![Donate][donate-badge]][donate]
+forked from kentcdodds/validate-commit-msg.
+
+原来的用法是在Client Side作为commit-msg钩子检查Commit Message是否符合要求。
+
+现在修改为用于Server Side作为pre-receive钩子检查Commit Message是否符合要求。
+
+# validate-commit-msg
 
 This provides you a binary that you can use as a githook to validate the commit message. I recommend
 [ghooks](http://npm.im/ghooks). You'll want to make this part of the `commit-msg` githook.

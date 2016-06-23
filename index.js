@@ -4,20 +4,21 @@
  * Git COMMIT-MSG hook for validating commit message
  * See https://docs.google.com/document/d/1rk04jEuGfk9kYzfqCuOlPTSJw3hEDZJTBN5E5f1SALo/edit
  *
- * Installation:
- * >> cd <angular-repo>
- * >> ln -s ../../validate-commit-msg.js .git/hooks/commit-msg
  */
 
 'use strict';
 
 var fs = require('fs');
 var util = require('util');
+var readline = require('readline');
 var resolve = require('path').resolve;
-var findup = require('findup');
-var semverRegex = require('semver-regex')
+var exec = require('child_process').exec;
+var execSync = require('child_process').execSync;
+var semverRegex = function() {
+  return /\bv?(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)(?:-[\da-z\-]+(?:\.[\da-z\-]+)*)?(?:\+[\da-z\-]+(?:\.[\da-z\-]+)*)?\b/ig;
+};
 
-var config = getConfig();
+var config = {};
 var MAX_LENGTH = config.maxSubjectLength || 100;
 var IGNORED = new RegExp(util.format('(^WIP)|(^%s$)', semverRegex().source));
 var TYPES = config.types || ['feat', 'fix', 'docs', 'style', 'refactor', 'perf', 'test', 'chore', 'revert'];
@@ -34,7 +35,7 @@ var error = function() {
 
 
 var validateMessage = function(raw) {
-  var messageWithBody = (raw || '').split('\n').filter(function (str) {
+  var messageWithBody = (raw || '').split('\n').filter(function(str) {
     return str.indexOf('#') !== 0;
   }).join('\n');
 
@@ -47,7 +48,7 @@ var validateMessage = function(raw) {
 
   var isValid = true;
 
-  if(MERGE_COMMIT_PATTERN.test(message)){
+  if (MERGE_COMMIT_PATTERN.test(message)) {
     console.log('Merge commit detected.');
     return true
   }
@@ -122,58 +123,55 @@ var validateMessage = function(raw) {
 
 // publish for testing
 exports.validateMessage = validateMessage;
-exports.getGitFolder = getGitFolder;
 exports.config = config;
 
-// hacky start if not run by mocha :-D
-// istanbul ignore next
-if (process.argv.join('').indexOf('mocha') === -1) {
 
-  var commitMsgFile = process.argv[2] || getGitFolder() + '/COMMIT_EDITMSG';
-  var incorrectLogFile = commitMsgFile.replace('COMMIT_EDITMSG', 'logs/incorrect-commit-msgs');
+var rl = readline.createInterface({
+  input: process.stdin,
+  output: process.stdout,
+  terminal: false
+});
 
-  var hasToString = function hasToString(x) {
-    return x && typeof x.toString === 'function';
-  };
+rl.on('line', function(line) {
+  if (line !== undefined) {
+    //console.log(line);
+    var preReceiveParam = line.split(" ");
 
-  fs.readFile(commitMsgFile, function(err, buffer) {
-    var msg = getCommitMessage(buffer);
+    var oldRevision = preReceiveParam[0];
+    var newRevision = preReceiveParam[1];
+    var refName = preReceiveParam[2];
 
-    if (!validateMessage(msg)) {
-      fs.appendFile(incorrectLogFile, msg + '\n', function() {
-        process.exit(1);
+    console.log("Getting pushing Revisions...");
+    var commandRevList = "git rev-list " + oldRevision + ".." + newRevision;
+    console.log(commandRevList);
+
+    exec(commandRevList, function(err, stdout, stderr) {
+      console.log("Ready to check Revision:")
+      console.log(stdout);
+
+      var revArray = stdout.split("\n").filter(function(str) {
+        return str.length !== 0;
       });
-    } else {
+
+      //console.log(revArray);
+      
+      for (var i = 0; i < revArray.length; i++) {
+        var commandMsg = 'git log --pretty=format:"%B" -n 1 ' + revArray[i];
+        //console.log(commandMsg);
+        var msg = execSync(commandMsg).toString();
+        console.log("Checking Commit Message of " + revArray[i] + ":");
+        console.log(msg.trimRight());
+        if (!validateMessage(msg)) {
+          console.error("Push validation failed for commit " + revArray[i]);
+          process.exit(1);
+        } else {
+          console.log("OK!\n");
+        }
+      }
+
+      // checked all commit msg, it's all clear
       process.exit(0);
-    }
 
-    function getCommitMessage(buffer) {
-      return hasToString(buffer) && buffer.toString();
-    }
-  });
-}
-
-function getConfig() {
-  var pkgFile = findup.sync(process.cwd(), 'package.json');
-  var pkg = JSON.parse(fs.readFileSync(resolve(pkgFile, 'package.json')));
-  return pkg && pkg.config && pkg.config['validate-commit-msg'] || {};
-}
-
-function getGitFolder()
-{
-  var gitDirLocation = './.git';
-  if (!fs.existsSync(gitDirLocation)) {
-      throw new Error('Cannot find file ' + gitDirLocation);
+    });
   }
-
-  if(!fs.lstatSync(gitDirLocation).isDirectory()) {
-     var unparsedText = '' + fs.readFileSync(gitDirLocation);
-     gitDirLocation = unparsedText.substring('gitdir: '.length).trim();
-  }
-
-  if (!fs.existsSync(gitDirLocation)) {
-    throw new Error('Cannot find file ' + gitDirLocation);
-  }
-
-  return gitDirLocation;
-}
+})
